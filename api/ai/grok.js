@@ -1,21 +1,33 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 
 const meta = {
   name: 'Grok',
-  path: '/grok?query=hi',
+  path: '/grok?query=hi&uid=1',
   method: 'get',
   category: 'ai'
 };
 
+// dossier de sauvegarde
+const saveDir = path.join(__dirname, 'grok_history');
+if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir);
+
 async function onStart({ req, res }) {
-  const { query } = req.query;
-  
+  const { query, uid } = req.query;
+
   if (!query) {
     return res.status(400).json({
       error: 'The "query" param is required'
     });
   }
-  
+
+  if (!uid) {
+    return res.status(400).json({
+      error: 'The "uid" param is required'
+    });
+  }
+
   try {
     const response = await axios({
       method: 'PUT',
@@ -35,12 +47,27 @@ async function onStart({ req, res }) {
         'Content-Type': 'application/json'
       }
     });
-    
+
+    // sauvegarde locale par uid
+    const filePath = path.join(saveDir, `${uid}.json`);
+    const history = fs.existsSync(filePath)
+      ? JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+      : [];
+
+    history.push({
+      query,
+      response: response.data,
+      date: new Date().toISOString()
+    });
+
+    fs.writeFileSync(filePath, JSON.stringify(history, null, 2));
+
     res.json({
       status: true,
+      uid,
       response: response.data
     });
-    
+
   } catch (error) {
     console.error('XGrok API Error:', error.message);
     res.status(500).json({
