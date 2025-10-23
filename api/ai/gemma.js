@@ -1,5 +1,8 @@
 const axios = require('axios');
 
+// simple mémoire locale des conversations par UID
+const history = {};
+
 const meta = {
   name: 'gemma 2 9B it',
   path: '/gemma?prompt=&uid=',
@@ -17,16 +20,24 @@ async function onStart({ req, res }) {
     });
   }
 
+  // on crée l’historique pour cet UID s’il n’existe pas
+  if (!history[uid]) {
+    history[uid] = [];
+  }
+
+  // on ajoute le message utilisateur à l’historique
+  history[uid].push({
+    role: "user",
+    content: prompt
+  });
+
   try {
     const response = await axios({
       method: 'PUT',
       url: 'https://promplate-api.free-chat.asia/please-do-not-hack-this/single/chat_messages',
       data: {
-        messages: [{
-          role: "user",
-          content: prompt
-        }],
-        model: "grok-2-1212", // 🔥 seule ligne modifiée
+        messages: history[uid],
+        model: "grok-2-1212",
         temperature: 0.7,
         presence_penalty: 0.6,
         frequency_penalty: 0.5
@@ -37,16 +48,22 @@ async function onStart({ req, res }) {
       }
     });
 
+    // si le modèle renvoie un message, on le sauvegarde aussi
+    if (response.data && response.data.choices && response.data.choices[0]?.message) {
+      history[uid].push(response.data.choices[0].message);
+    }
+
     res.json({
       status: true,
-      response: response.data
+      response: response.data,
+      history: history[uid] // tu peux l’enlever si tu veux pas l’envoyer
     });
 
   } catch (error) {
-    console.error('Gemma API Error:', error.message);
+    console.error('Grok API Error:', error.message);
     res.status(500).json({
       status: false,
-      error: 'Failed to get response from Grok' // juste le message
+      error: 'Failed to get response from Grok'
     });
   }
 }
