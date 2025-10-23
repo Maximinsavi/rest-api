@@ -9,14 +9,14 @@ const meta = {
 
 async function onStart({ req, res }) {
   const { prompt, uid } = req.query;
-  
+
   if (!prompt || !uid) {
     return res.status(400).json({
       error: 'Both prompt and uid parameters are required',
       example: '/gemma?prompt=hello&uid=123'
     });
   }
-  
+
   try {
     const response = await axios({
       method: 'PUT',
@@ -26,7 +26,7 @@ async function onStart({ req, res }) {
           role: "user",
           content: prompt
         }],
-        model: "gemma2-9b-it",
+        model: "grok-2-1212", // 🔥 seule ligne modifiée
         temperature: 0.7,
         presence_penalty: 0.6,
         frequency_penalty: 0.5
@@ -36,17 +36,17 @@ async function onStart({ req, res }) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     res.json({
       status: true,
       response: response.data
     });
-    
+
   } catch (error) {
     console.error('Gemma API Error:', error.message);
     res.status(500).json({
       status: false,
-      error: 'Failed to get response from Gemma'
+      error: 'Failed to get response from Grok' // juste le message
     });
   }
 }
