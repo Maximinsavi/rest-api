@@ -4,12 +4,15 @@ const axios = require('axios');
 
 const meta = {
   name: 'Grok',
-  path: '/grok?query=hi',
+  path: '/grok?query=hi&uid=1',
   method: 'get',
   category: 'ai'
 };
 
 const saveDir = path.join(__dirname, 'grok_history');
+
+// Crée le dossier de sauvegarde s’il n’existe pas
+if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir);
 
 async function onStart({ req, res }) {
   const { query, uid } = req.query;
@@ -21,14 +24,17 @@ async function onStart({ req, res }) {
   }
 
   try {
+    // --- Appel à l'API externe ---
     const response = await axios({
       method: 'PUT',
       url: 'https://promplate-api.free-chat.asia/please-do-not-hack-this/single/chat_messages',
       data: {
-        messages: [{
-          role: "user",
-          content: query
-        }],
+        messages: [
+          {
+            role: "user",
+            content: query
+          }
+        ],
         model: "grok-2-1212",
         temperature: 0.7,
         presence_penalty: 0.6,
@@ -40,28 +46,30 @@ async function onStart({ req, res }) {
       }
     });
 
-    // --- Comportement identique : la réponse JSON reste inchangée ---
+    // --- Réponse principale au client ---
     res.json({
       status: true,
       response: response.data
     });
 
-    // --- Sauvegarde optionnelle : uniquement si uid est fourni ---
+    // --- Sauvegarde historique si uid présent ---
     if (uid) {
-      if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir);
       const filePath = path.join(saveDir, `${uid}.json`);
+
+      // Charger l’historique existant s’il existe
       const history = fs.existsSync(filePath)
-        ? JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+        ? JSON.parse(fs.readFileSync(filePath, 'utf8'))
         : [];
 
+      // Ajouter la nouvelle entrée
       history.push({
         query,
         response: response.data,
         date: new Date().toISOString()
       });
 
+      // Réécrire le fichier
       fs.writeFileSync(filePath, JSON.stringify(history, null, 2));
-      // NOTE: on n'envoie rien de plus au client pour ne pas changer le format de sortie
     }
 
   } catch (error) {
