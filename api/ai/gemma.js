@@ -49,21 +49,28 @@ const meta = {
 
 async function onStart({ req, res }) {
   const { prompt, uid, pass } = req.query;
+
   if (!prompt || !uid || !pass) {
     return res.status(400).json({
-      error: 'prompt, uid, pass requis',
-      example: '/gemma?prompt=hello&uid=123&pass=monpass'
+      error: 'prompt, uid et pass sont requis',
+      example: '/gemma?prompt=hello&uid=123&pass=tonpass'
     });
   }
 
   if (!memory[uid]) {
     const loaded = load(uid, pass);
     memory[uid] = loaded || [
-      { role: "system", content: "Tu es Grok, un assistant intelligent, drôle et logique. Réponds toujours avec clarté et contexte." }
+      {
+        role: "system",
+        content: "Tu es Grok, un assistant intelligent, drôle et logique. Réponds toujours avec clarté et contexte."
+      }
     ];
   }
 
-  memory[uid].push({ role: "user", content: prompt });
+  memory[uid].push({
+    role: "user",
+    content: prompt
+  });
 
   try {
     const response = await axios({
@@ -77,7 +84,7 @@ async function onStart({ req, res }) {
         frequency_penalty: 0.5
       },
       headers: {
-        'User-Agent': 'Mozilla/5.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Content-Type': 'application/json'
       }
     });
@@ -86,9 +93,17 @@ async function onStart({ req, res }) {
     if (reply) memory[uid].push(reply);
     save(uid, pass, memory[uid]);
 
-    res.json({ status: true, response: reply || response.data });
+    res.json({
+      status: true,
+      response: reply || response.data,
+    });
+
   } catch (error) {
-    res.status(500).json({ status: false, error: 'Failed to get response from Grok' });
+    console.error('Grok API Error:', error.message);
+    res.status(500).json({
+      status: false,
+      error: 'Failed to get response from Grok'
+    });
   }
 }
 
