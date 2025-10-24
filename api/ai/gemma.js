@@ -54,18 +54,18 @@ headers: {
 }
 });
 
-// Récupère la réponse du modèle
-const reply = response.data?.choices?.[0]?.message;
+// Récupère la réponse du modèle  
+const reply = response.data?.choices?.[0]?.message;  
 
-// Si Grok a répondu, on sauvegarde sa réponse aussi
-if (reply) {
-memory[uid].push(reply);
-}
+// Si Grok a répondu, on sauvegarde sa réponse aussi  
+if (reply) {  
+  memory[uid].push(reply);  
+}  
 
-// Réponse finale au client
-res.json({
-status: true,
-response: reply || response.data,
+// Réponse finale au client  
+res.json({  
+  status: true,  
+  response: reply || response.data,  
 });
 
 } catch (error) {
@@ -78,4 +78,3 @@ error: 'Failed to get response from Grok'
 }
 
 module.exports = { meta, onStart };
-
