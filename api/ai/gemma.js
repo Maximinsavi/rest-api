@@ -1,11 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 const axios = require('axios');
 
-// Dossier mémoire persistante
-const chatHistoryDir = 'groqllama70b';
-
-// Mémoire temporaire en RAM (si besoin en plus du fichier)
+// Mémoire en RAM (par UID)
 const memory = {};
 
 const meta = {
@@ -25,18 +20,15 @@ async function onStart({ req, res }) {
     });
   }
 
-  // Si "clear" → on efface tout
+  // Efface la mémoire RAM si "clear"
   if (prompt.toLowerCase() === 'clear') {
-    clearChatHistory(uid);
-    return res.json({ status: true, message: "Chat history cleared!" });
+    delete memory[uid];
+    return res.json({ status: true, message: "Chat memory cleared!" });
   }
 
-  // Charger la mémoire persistante
-  const chatHistory = loadChatHistory(uid);
-
-  // Initialise la mémoire RAM si elle n’existe pas
+  // Initialise la mémoire si nécessaire
   if (!memory[uid]) {
-    memory[uid] = chatHistory.length ? chatHistory : [
+    memory[uid] = [
       {
         role: "system",
         content: "Tu es Grok, un assistant intelligent, drôle et logique. Réponds toujours avec clarté et contexte."
@@ -44,12 +36,12 @@ async function onStart({ req, res }) {
     ];
   }
 
-  // Ajouter le message utilisateur
+  // Ajoute le message utilisateur
   const userMessage = { role: "user", content: prompt };
   memory[uid].push(userMessage);
 
   try {
-    // ======== 🔥 Requête vers le bon site =========
+    // 🔥 Envoi à DeepEnglish
     const response = await axios.post(
       'https://api.deepenglish.com/api/gpt_open_ai/chatnew',
       {
@@ -65,7 +57,6 @@ async function onStart({ req, res }) {
         }
       }
     );
-    // =============================================
 
     console.log("Réponse DeepEnglish API:", response.data);
 
@@ -80,14 +71,10 @@ async function onStart({ req, res }) {
       status = false;
     }
 
-    // Ajouter la réponse dans la mémoire
-    const botMessage = { role: "assistant", content: reply };
-    memory[uid].push(botMessage);
+    // Sauvegarde la réponse dans la mémoire RAM
+    memory[uid].push({ role: "assistant", content: reply });
 
-    // Sauvegarder dans le fichier (persistant)
-    appendToChatHistory(uid, [userMessage, botMessage]);
-
-    // Réponse au client
+    // Réponse finale
     res.json({
       status,
       response: reply
@@ -105,32 +92,6 @@ async function onStart({ req, res }) {
       error: error.response?.data || error.message
     });
   }
-}
-
-// ======== 🔒 MÉMOIRE PERSISTANTE ========
-
-function loadChatHistory(uid) {
-  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
-  if (!fs.existsSync(file)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return [];
-  }
-}
-
-function appendToChatHistory(uid, newEntries) {
-  if (!fs.existsSync(chatHistoryDir)) fs.mkdirSync(chatHistoryDir);
-  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
-  const history = loadChatHistory(uid);
-  const updated = [...history, ...newEntries];
-  const trimmed = updated.slice(-100); // limite à 100 messages
-  fs.writeFileSync(file, JSON.stringify(trimmed, null, 2));
-}
-
-function clearChatHistory(uid) {
-  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
-  if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
 module.exports = { meta, onStart };
