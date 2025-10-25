@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-// Mémoire en RAM (par UID)
+// Mémoire des conversations (temporaire, par UID)
 const memory = {};
 
 const meta = {
@@ -20,13 +20,7 @@ async function onStart({ req, res }) {
     });
   }
 
-  // Efface la mémoire RAM si "clear"
-  if (prompt.toLowerCase() === 'clear') {
-    delete memory[uid];
-    return res.json({ status: true, message: "Chat memory cleared!" });
-  }
-
-  // Initialise la mémoire si nécessaire
+  // Initialise la mémoire pour cet utilisateur s’il n’existe pas
   if (!memory[uid]) {
     memory[uid] = [
       {
@@ -37,11 +31,13 @@ async function onStart({ req, res }) {
   }
 
   // Ajoute le message utilisateur
-  const userMessage = { role: "user", content: prompt };
-  memory[uid].push(userMessage);
+  memory[uid].push({
+    role: "user",
+    content: prompt
+  });
 
   try {
-    // 🔥 Envoi à DeepEnglish
+    // Envoie le contexte complet à la nouvelle API
     const response = await axios.post(
       'https://api.deepenglish.com/api/gpt_open_ai/chatnew',
       {
@@ -58,6 +54,7 @@ async function onStart({ req, res }) {
       }
     );
 
+    // Debug log complet
     console.log("Réponse DeepEnglish API:", response.data);
 
     let reply = "No response received.";
@@ -71,13 +68,16 @@ async function onStart({ req, res }) {
       status = false;
     }
 
-    // Sauvegarde la réponse dans la mémoire RAM
-    memory[uid].push({ role: "assistant", content: reply });
+    // Sauvegarde la réponse dans la mémoire
+    memory[uid].push({
+      role: "assistant",
+      content: reply
+    });
 
-    // Réponse finale
+    // Réponse finale au client
     res.json({
       status,
-      response: reply
+      response: reply,
     });
 
   } catch (error) {
