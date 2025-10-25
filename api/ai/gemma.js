@@ -1,7 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 
-// Mémoire des conversations (temporaire, par UID)
-const memory = {};
+// Dossier de stockage des historiques
+const chatHistoryDir = 'groqllama70b';
 
 const meta = {
   name: 'gemma 2 9B it',
@@ -20,28 +22,31 @@ async function onStart({ req, res }) {
     });
   }
 
-  // Initialise la mémoire pour cet utilisateur s’il n’existe pas
-  if (!memory[uid]) {
-    memory[uid] = [
-      {
-        role: "system",
-        content: "Tu es Grok, un assistant intelligent, drôle et logique. Réponds toujours avec clarté et contexte."
-      }
-    ];
+  // Cas "clear" → efface la mémoire
+  if (prompt.toLowerCase() === 'clear') {
+    clearChatHistory(uid);
+    return res.json({ status: true, message: "Chat history cleared!" });
   }
 
-  // Ajoute le message utilisateur
-  memory[uid].push({
-    role: "user",
-    content: prompt
-  });
+  // Charger l'historique
+  const chatHistory = loadChatHistory(uid);
+
+  // Ajouter le message utilisateur
+  const userMessage = { role: "user", content: prompt };
+  const systemPrompt = { 
+    role: "system", 
+    content: "Tu es Grok, un assistant logique, clair et un peu drôle. Réponds toujours avec précision." 
+  };
+
+  // Construire les messages pour l'API
+  const messages = [systemPrompt, ...chatHistory, userMessage];
 
   try {
-    // Envoie le contexte complet à la nouvelle API
+    // Appel à l’API DeepEnglish
     const response = await axios.post(
       'https://api.deepenglish.com/api/gpt_open_ai/chatnew',
       {
-        messages: memory[uid],
+        messages,
         projectName: "wordpress",
         temperature: 0.9
       },
@@ -54,7 +59,7 @@ async function onStart({ req, res }) {
       }
     );
 
-    // Debug log complet
+    // Debug complet (dans ta console serveur)
     console.log("Réponse DeepEnglish API:", response.data);
 
     let reply = "No response received.";
@@ -68,16 +73,35 @@ async function onStart({ req, res }) {
       status = false;
     }
 
-    // Sauvegarde la réponse dans la mémoire
-    memory[uid].push({
-      role: "assistant",
-      content: reply
-    });
+    // Sauvegarder dans le fichier (mémoire persistante)
+    appendToChatHistory(uid, [userMessage, { role: "assistant", content: reply }]);
+
+    // Recharger après mise à jour pour afficher l’historique récent
+    const updatedHistory = loadChatHistory(uid);
+    const pairs = [];
+
+    for (let i = 0; i < updatedHistory.length; i += 2) {
+      const userMsg = updatedHistory[i];
+      const botMsg = updatedHistory[i + 1];
+      if (userMsg && botMsg && userMsg.role === "user" && botMsg.role === "assistant") {
+        pairs.push({ question: userMsg.content, reponse: botMsg.content });
+      }
+    }
+
+    const lastTen = pairs.slice(-10);
+    const historyObject = {};
+    for (let i = 0; i < lastTen.length; i++) {
+      const num = i + 1;
+      historyObject[`question${num}`] = lastTen[i].question;
+      historyObject[`reponse${num}`] = lastTen[i].reponse;
+    }
 
     // Réponse finale au client
     res.json({
       status,
-      response: reply,
+      reply,
+      author: "Maximin",
+      history: [historyObject]
     });
 
   } catch (error) {
@@ -92,6 +116,36 @@ async function onStart({ req, res }) {
       error: error.response?.data || error.message
     });
   }
+}
+
+// ======== GESTION DE LA MÉMOIRE ========
+
+function loadChatHistory(uid) {
+  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
+  if (!fs.existsSync(file)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
+function appendToChatHistory(uid, newEntries) {
+  if (!fs.existsSync(chatHistoryDir)) fs.mkdirSync(chatHistoryDir);
+  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
+  const history = loadChatHistory(uid);
+  const updated = [...history, ...newEntries];
+
+  // Limiter à 100 messages max
+  const maxMessages = 100;
+  const trimmed = updated.slice(-maxMessages);
+  fs.writeFileSync(file, JSON.stringify(trimmed, null, 2));
+}
+
+function clearChatHistory(uid) {
+  const file = path.join(chatHistoryDir, `memory_${uid}.json`);
+  if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
 module.exports = { meta, onStart };
