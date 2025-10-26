@@ -1,7 +1,44 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 
-// Mémoire des conversations (temporaire, par UID)
-const memory = {};
+// Dossier pour stocker les mémoires
+const MEMORY_DIR = path.join(__dirname, 'user_memory');
+
+// Crée le dossier s'il n'existe pas
+if (!fs.existsSync(MEMORY_DIR)) fs.mkdirSync(MEMORY_DIR);
+
+function getMemoryFile(uid) {
+  return path.join(MEMORY_DIR, `${uid}.json`);
+}
+
+// Charge la mémoire pour un utilisateur
+function loadMemory(uid) {
+  const file = getMemoryFile(uid);
+  if (fs.existsSync(file)) {
+    try {
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (err) {
+      console.error(`Erreur chargement mémoire UID ${uid}:`, err);
+    }
+  }
+  // Si pas de fichier, retourne mémoire initiale
+  return [
+    {
+      role: "system",
+      content: "Tu es MaxChat V2, un assistant intelligent, drôle et logique..."
+    }
+  ];
+}
+
+// Sauvegarde la mémoire pour un utilisateur
+function saveMemory(uid, memory) {
+  try {
+    fs.writeFileSync(getMemoryFile(uid), JSON.stringify(memory, null, 2), 'utf8');
+  } catch (err) {
+    console.error(`Erreur sauvegarde mémoire UID ${uid}:`, err);
+  }
+}
 
 const meta = {
   name: 'gemma 2 9B it',
@@ -20,28 +57,17 @@ async function onStart({ req, res }) {
     });
   }
 
-  // Initialise la mémoire pour cet utilisateur s’il n’existe pas
-  if (!memory[uid]) {
-    memory[uid] = [
-      {
-        role: "system",
-        content: "Tu es MaxChat V2, un assistant intelligent, drôle et logique, qui répond toujours avec clarté et contexte, créé par ton développeur personnel Maximin SAVI, dont les informations sont : Nom complet : Maximin SAVI, Numéro personnel (WhatsApp inclus) : +2290193665754, Date de naissance : 23/02/2007, Lieu de naissance : KPOMASSÉ (Bénin), Localisation actuelle : Abomey-Calavi, Statut : Étudiant en première année d’université, Domaine d’étude : Droit et allemand, Passions : Technologie, IA, langues, communication, développement web ; tu es hébergé sur le site Maxgram.wapaxo.com, un espace de chat et de partage, ton nom d’utilisateur est MaxChat, ton profil public est MaxGram.wapaxo.com/page-profile.html?to-user=MaxChat, le profil de ton administrateur est MaxGram.wapaxo.com/page-profile.html?to-user=maximin, et tu as été créé le 25 novembre 2025 à 10h45, représentant fièrement ton créateur."
-      }
-    ];
-  }
+  // Charge la mémoire existante ou initialise
+  let memory = loadMemory(uid);
 
   // Ajoute le message utilisateur
-  memory[uid].push({
-    role: "user",
-    content: prompt
-  });
+  memory.push({ role: "user", content: prompt });
 
   try {
-    // Envoie le contexte complet à la nouvelle API
     const response = await axios.post(
       'https://api.deepenglish.com/api/gpt_open_ai/chatnew',
       {
-        messages: memory[uid],
+        messages: memory,
         projectName: "wordpress",
         temperature: 0.9
       },
@@ -54,43 +80,20 @@ async function onStart({ req, res }) {
       }
     );
 
-    // Debug log complet
-    console.log("Réponse DeepEnglish API:", response.data);
+    let reply = response.data?.success ? response.data.message : response.data?.message || "No response received.";
+    let status = !!response.data?.success;
 
-    let reply = "No response received.";
-    let status = false;
+    // Ajoute la réponse de l'assistant dans la mémoire
+    memory.push({ role: "assistant", content: reply });
 
-    if (response.data && response.data.success) {
-      reply = response.data.message || reply;
-      status = true;
-    } else if (response.data.message) {
-      reply = response.data.message;
-      status = false;
-    }
+    // Sauvegarde persistante
+    saveMemory(uid, memory);
 
-    // Sauvegarde la réponse dans la mémoire
-    memory[uid].push({
-      role: "assistant",
-      content: reply
-    });
-
-    // Réponse finale au client
-    res.json({
-      status,
-      response: reply,
-    });
+    res.json({ status, response: reply });
 
   } catch (error) {
-    console.error('DeepEnglish API Error:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
-
-    res.status(500).json({
-      status: false,
-      error: error.response?.data || error.message
-    });
+    console.error('DeepEnglish API Error:', error.message);
+    res.status(500).json({ status: false, error: error.message });
   }
 }
 
