@@ -1,4 +1,4 @@
-const axios = require('axios');
+const translate = require('@vitalets/google-translate-api');
 
 const meta = {
   name: 'Translate',
@@ -18,23 +18,17 @@ async function onStart({ req, res }) {
   }
 
   try {
-    const response = await axios({
-      method: 'POST',
-      url: 'https://libretranslate.de/translate',
-      headers: { 'Content-Type': 'application/json' },
-      data: { q: text, source: 'auto', target: lang, format: 'text' }
-    });
-
-    console.log('LibreTranslate response:', response.data); // pour debug
+    // Traduction via Google Translate gratuit
+    const result = await translate(text, { to: lang });
 
     res.json({
       status: true,
-      tans: response.data.translatedText || '',
+      tans: result.text,   // le texte traduit
       operator: 'Maximin'
     });
 
   } catch (error) {
-    console.error('Translation API Error:', error.message);
+    console.error('Translation Error:', error.message);
     res.status(500).json({
       status: false,
       error: 'Failed to get translation.'
