@@ -1,9 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
 
-// Mémoire des traductions par UID
 const memory = {};
 
+// 🔥 Auto-save functions
 function saveMemory(uid) {
   try {
     fs.writeFileSync(`./memory_tradu_${uid}.json`, JSON.stringify(memory[uid], null, 2), 'utf8');
@@ -24,7 +24,14 @@ function loadMemory(uid) {
   return null;
 }
 
-// Endpoint /traduire
+// Meta pour référence
+const meta = {
+  name: 'traduction',
+  path: '/traduire?text=&lang=&uid=',
+  method: 'get',
+  category: 'translation'
+};
+
 async function onTraduire({ req, res }) {
   const { text, lang, uid } = req.query;
 
@@ -35,42 +42,45 @@ async function onTraduire({ req, res }) {
     });
   }
 
-  // Initialisation mémoire pour cet UID
+  // Initialisation mémoire
   if (!memory[uid]) {
     const saved = loadMemory(uid);
     memory[uid] = saved || [];
   }
 
-  // Ajout du texte original à la mémoire
+  // Ajout du texte utilisateur
   memory[uid].push({ role: 'user', content: text });
 
   try {
-    // Appel réel à LibreTranslate
-    const response = await axios.post('https://libretranslate.de/translate', {
-      q: text,
-      source: 'auto', // détecte automatiquement la langue
-      target: lang,
-      format: 'text'
-    }, {
-      headers: { 'Content-Type': 'application/json' }
+    // Appel réel à l'API LibreTranslate
+    const response = await axios({
+      method: 'post',
+      url: 'https://libretranslate.de/translate',
+      headers: { 'Content-Type': 'application/json' },
+      data: {
+        q: text,
+        source: 'auto',
+        target: lang,
+        format: 'text'
+      }
     });
 
-    const traduction = response.data.translatedText;
+    let traduction = "No response";
+    if (response.data && response.data.translatedText) {
+      traduction = response.data.translatedText;
+    }
 
-    // Ajout de la traduction dans la mémoire
+    // Ajout de la traduction à la mémoire
     memory[uid].push({ role: 'assistant', content: traduction });
     saveMemory(uid);
 
-    // Retour au client
-    res.json({
-      status: true,
-      translation: traduction
-    });
+    // Réponse au client
+    res.json({ status: true, translation: traduction });
 
   } catch (err) {
-    console.error("Erreur traduction:", err.message);
+    console.error("Erreur traduction :", err.message);
     res.status(500).json({ status: false, error: err.message });
   }
 }
 
-module.exports = { onTraduire };
+module.exports = { meta, onTraduire };
