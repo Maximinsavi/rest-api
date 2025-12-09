@@ -21,21 +21,16 @@ async function onStart({ req, res }) {
     const response = await axios({
       method: 'POST',
       url: 'https://libretranslate.de/translate',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      data: {
-        q: text,
-        source: 'auto',
-        target: lang,
-        format: 'text'
-      }
+      headers: { 'Content-Type': 'application/json' },
+      data: { q: text, source: 'auto', target: lang, format: 'text' }
     });
+
+    console.log('LibreTranslate response:', response.data); // pour debug
 
     res.json({
       status: true,
-      operator: 'Maximin',
-      tans: response.data.translatedText  // <-- la traduction ici
+      tans: response.data.translatedText || '',
+      operator: 'Maximin'
     });
 
   } catch (error) {
