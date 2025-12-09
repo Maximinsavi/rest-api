@@ -27,7 +27,7 @@ function loadMemory(uid) {
 // Meta pour référence
 const meta = {
   name: 'traduction',
-  path: '/traduire?text=&lang=&uid=',
+  path: '/goody?text=&lang=&uid=',
   method: 'get',
   category: 'translation'
 };
