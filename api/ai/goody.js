@@ -18,7 +18,6 @@ async function onStart({ req, res }) {
   }
 
   try {
-    // Requête réelle à LibreTranslate
     const response = await axios({
       method: 'POST',
       url: 'https://libretranslate.de/translate',
@@ -35,7 +34,8 @@ async function onStart({ req, res }) {
 
     res.json({
       status: true,
-      translation: response.data.translatedText
+      operator: 'Maximin',
+      tans: response.data.translatedText  // <-- la traduction ici
     });
 
   } catch (error) {
