@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css"
+    />
+
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=general-sans@200,201,300,301,400,401,500,501,600,601,700,701&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="icon" type="image/png" href="https://www.exobooster.com/favcon.png" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1"
+    />
+
+    <title>Download the Exo Booster app</title>
+
+    <!-- Meta Pixel Code -->
+    <script>
+      !function (f, b, e, v, n, t, s) {
+        if (f.fbq) return;
+        n = f.fbq = function () {
+          n.callMethod
+            ? n.callMethod.apply(n, arguments)
+            : n.queue.push(arguments);
+        };
+        if (!f._fbq) f._fbq = n;
+        n.push = n;
+        n.loaded = !0;
+        n.version = "2.0";
+        n.queue = [];
+        t = b.createElement(e);
+        t.async = !0;
+        t.src = v;
+        s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s);
+      }(
+        window,
+        document,
+        "script",
+        "https://connect.facebook.net/en_US/fbevents.js"
+      );
+
+      fbq("init", "1301309415204866");
+
+      var ua = navigator.userAgent || "";
+      var inWebview = /FBAN|FBAV|FB_IAB|FBIOS|FB4A|Instagram/.test(ua);
+
+      if (window.location.pathname.startsWith("/exoboost.html") && !inWebview) {
+        fbq("track", "PageView");
+      }
+    </script>
+    <!-- End Meta Pixel Code -->
+
+    <script
+      type="module"
+      crossorigin
+      src="https://www.exobooster.com/assets/index-nGVxIRlg.js"
+    ></script>
+
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="https://www.exobooster.com/assets/index-TYILt47q.css"
+    />
+  </head>
+
+  <body>
+    <div id="root" class="notranslate"></div>
+  </body>
+</html>
