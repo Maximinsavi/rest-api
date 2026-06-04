@@ -1,75 +1,73 @@
 const Groq = require('groq-sdk');
 const fs = require('fs');
-const path = require('path');
-
 
 const memory = {};
-const folder = './groq_ai';
 
 
-if (!fs.existsSync(folder)) {
-  fs.mkdirSync(folder);
-}
-
-
-const groq = new Groq({
-  apiKey: 'MET_TA_CLE_GROQ_ICI'
-});
-
-
-const meta = {
-  name: 'ai',
-  path: '/ai?prompt=&uid=',
-  method: 'get',
-  category: 'ai'
-};
-
-
-
-function loadMemory(uid) {
+// 🔥 AUTO LOAD MEMORY
+function loadAllMemory() {
 
   try {
 
-    const file = path.join(
-      folder,
-      `memory_${uid}.json`
-    );
+    const files = fs.readdirSync('./');
 
-    if (fs.existsSync(file)) {
+    files.forEach(file => {
 
-      return JSON.parse(
-        fs.readFileSync(file, 'utf8')
-      );
+      if (file.startsWith('memory_ai_') && file.endsWith('.json')) {
 
-    }
+        const uid =
+        file.replace('memory_ai_', '')
+        .replace('.json','');
 
-  } catch(e) {}
 
-  return [
-    {
-      role:"system",
-      content:"Tu es MaxChat, un assistant intelligent."
-    }
-  ];
+        memory[uid] =
+        JSON.parse(
+          fs.readFileSync(`./${file}`, 'utf8')
+        );
+
+
+        console.log(`Mémoire chargée: ${uid}`);
+
+      }
+
+    });
+
+
+  } catch(e) {
+
+    console.log(e.message);
+
+  }
 
 }
 
 
+loadAllMemory();
 
+
+
+
+// 🔥 SAVE MEMORY
 function saveMemory(uid) {
 
-  fs.writeFileSync(
+  fs.writeFile(
 
-    path.join(
-      folder,
-      `memory_${uid}.json`
-    ),
+    `./memory_ai_${uid}.json`,
 
     JSON.stringify(
       memory[uid],
       null,
       2
-    )
+    ),
+
+    'utf8',
+
+    err => {
+
+      if(err)
+      console.log(err.message);
+
+    }
 
   );
 
@@ -77,105 +75,207 @@ function saveMemory(uid) {
 
 
 
-async function onStart({req,res}) {
-
-
-  const { prompt, uid } = req.query;
-
-
-  if (!prompt || !uid) {
-
-    return res.status(400).json({
-      error:"prompt et uid obligatoires"
-    });
-
-  }
-
-
-
-  if (!memory[uid]) {
-
-    memory[uid] = loadMemory(uid);
-
-  }
-
-
-
-  memory[uid].push({
-
-    role:"user",
-    content:prompt
-
-  });
-
+function loadMemory(uid) {
 
 
   try {
 
 
-    const result =
-    await groq.chat.completions.create({
-
-      model:
-      "llama-3.3-70b-versatile",
-
-      messages:
-      memory[uid],
-
-      temperature:0.7
-
-    });
+    const file =
+    `./memory_ai_${uid}.json`;
 
 
+    if(fs.existsSync(file)) {
 
-    const reply =
-    result.choices[0].message.content;
+      return JSON.parse(
+        fs.readFileSync(file,'utf8')
+      );
+
+    }
 
 
+  } catch(e){}
 
-    memory[uid].push({
 
-      role:"assistant",
-      content:reply
+  return null;
 
-    });
+}
 
 
 
-    saveMemory(uid);
+
+const meta = {
+
+name:'ai',
+
+path:'/ai?prompt=&uid=',
+
+method:'get',
+
+category:'ai'
+
+};
 
 
 
-    res.json({
 
-      status:true,
+async function onStart({req,res}) {
 
-      response:reply
 
-    });
+const {prompt,uid}=req.query;
 
 
 
-  } catch(e) {
+if(!prompt || !uid){
+
+return res.status(400).json({
+
+error:'Both prompt and uid parameters are required'
+
+});
+
+}
 
 
-    res.status(500).json({
-
-      status:false,
-
-      error:e.message
-
-    });
 
 
-  }
+if(!memory[uid]){
+
+
+memory[uid]=
+loadMemory(uid) || [
+
+{
+
+role:"system",
+
+content:
+"Tu es MaxChat, une IA intelligente, drôle et logique."
+
+}
+
+];
 
 
 }
 
 
 
-module.exports = {
-  meta,
-  onStart
+
+memory[uid].push({
+
+role:"user",
+
+content:prompt
+
+});
+
+
+
+
+
+try {
+
+
+
+const groq =
+new Groq({
+
+apiKey:
+"MET_TA_CLE_GROQ_ICI"
+
+});
+
+
+
+
+
+const response =
+await groq.chat.completions.create({
+
+
+messages:memory[uid],
+
+
+model:
+"llama-3.3-70b-versatile",
+
+
+temperature:0.9
+
+
+});
+
+
+
+
+
+let reply =
+response.choices[0].message.content;
+
+
+
+
+
+memory[uid].push({
+
+role:"assistant",
+
+content:reply
+
+});
+
+
+
+
+
+saveMemory(uid);
+
+
+
+
+
+res.json({
+
+status:true,
+
+response:reply
+
+});
+
+
+
+
+} catch(error){
+
+
+
+console.log(
+"Groq Error:",
+error.message
+);
+
+
+
+res.status(500).json({
+
+status:false,
+
+error:error.message
+
+});
+
+
+}
+
+
+
+}
+
+
+
+
+module.exports={
+meta,
+onStart
 };
