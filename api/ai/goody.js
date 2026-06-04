@@ -1,121 +1,51 @@
-const Groq = require('groq-sdk');
+const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 
 const memory = {};
 
-
-// 🔥 AUTO LOAD MEMORY
-function loadAllMemory() {
-
-  try {
-
-    const files = fs.readdirSync('./');
-
-    files.forEach(file => {
-
-      if (file.startsWith('memory_ai_') && file.endsWith('.json')) {
-
-        const uid =
-        file.replace('memory_ai_', '')
-        .replace('.json','');
+const meta = {
+  name: 'ai',
+  path: '/ai?prompt=&uid=',
+  method: 'get',
+  category: 'ai'
+};
 
 
-        memory[uid] =
-        JSON.parse(
-          fs.readFileSync(`./${file}`, 'utf8')
-        );
-
-
-        console.log(`Mémoire chargée: ${uid}`);
-
-      }
-
-    });
-
-
-  } catch(e) {
-
-    console.log(e.message);
-
-  }
-
-}
-
-
-loadAllMemory();
-
-
-
-
-// 🔥 SAVE MEMORY
 function saveMemory(uid) {
 
-  fs.writeFile(
-
+  fs.writeFileSync(
     `./memory_ai_${uid}.json`,
-
-    JSON.stringify(
-      memory[uid],
-      null,
-      2
-    ),
-
-    'utf8',
-
-    err => {
-
-      if(err)
-      console.log(err.message);
-
-    }
-
+    JSON.stringify(memory[uid], null, 2),
+    'utf8'
   );
 
 }
 
 
-
 function loadMemory(uid) {
-
 
   try {
 
+    return JSON.parse(
+      fs.readFileSync(
+        `./memory_ai_${uid}.json`,
+        'utf8'
+      )
+    );
 
-    const file =
-    `./memory_ai_${uid}.json`;
+  } catch(e) {
 
+    return [
+      {
+        role:"system",
+        content:"Tu es MaxChat, une IA intelligente."
+      }
+    ];
 
-    if(fs.existsSync(file)) {
-
-      return JSON.parse(
-        fs.readFileSync(file,'utf8')
-      );
-
-    }
-
-
-  } catch(e){}
-
-
-  return null;
+  }
 
 }
-
-
-
-
-const meta = {
-
-name:'ai',
-
-path:'/ai?prompt=&uid=',
-
-method:'get',
-
-category:'ai'
-
-};
-
 
 
 
@@ -130,7 +60,7 @@ if(!prompt || !uid){
 
 return res.status(400).json({
 
-error:'Both prompt and uid parameters are required'
+error:"prompt et uid obligatoires"
 
 });
 
@@ -138,27 +68,11 @@ error:'Both prompt and uid parameters are required'
 
 
 
+if(!memory[uid]) {
 
-if(!memory[uid]){
-
-
-memory[uid]=
-loadMemory(uid) || [
-
-{
-
-role:"system",
-
-content:
-"Tu es MaxChat, une IA intelligente, drôle et logique."
+memory[uid]=loadMemory(uid);
 
 }
-
-];
-
-
-}
-
 
 
 
@@ -172,47 +86,47 @@ content:prompt
 
 
 
-
-
 try {
 
 
-
-const groq =
-new Groq({
-
-apiKey:
-"MET_TA_CLE_GROQ_ICI"
-
-});
+const response = await axios.post(
 
 
+"https://api.groq.com/openai/v1/chat/completions",
 
 
+{
 
-const response =
-await groq.chat.completions.create({
-
+model:"llama-3.3-70b-versatile",
 
 messages:memory[uid],
 
-
-model:
-"llama-3.3-70b-versatile",
-
-
 temperature:0.9
 
-
-});
-
+},
 
 
+{
+
+headers:{
+
+"Authorization":
+"Bearer MET_TA_CLE_GROQ_ICI",
+
+"Content-Type":
+"application/json"
+
+}
+
+}
 
 
-let reply =
-response.choices[0].message.content;
+);
 
+
+
+const reply =
+response.data.choices[0].message.content;
 
 
 
@@ -227,11 +141,7 @@ content:reply
 
 
 
-
-
 saveMemory(uid);
-
-
 
 
 
@@ -245,23 +155,19 @@ response:reply
 
 
 
-
-} catch(error){
-
+} catch(e) {
 
 
 console.log(
-"Groq Error:",
-error.message
+e.response?.data || e.message
 );
-
 
 
 res.status(500).json({
 
 status:false,
 
-error:error.message
+error:e.message
 
 });
 
@@ -269,9 +175,7 @@ error:error.message
 }
 
 
-
 }
-
 
 
 
