@@ -3,12 +3,11 @@ const fs = require('fs');
 const path = require('path');
 
 
-const chatHistoryDir = 'groqllama70b';
+const chatHistoryDir = 'groqai';
+
 
 const groq = new Groq({
-
   apiKey: process.env.GROQ_API_KEY
-
 });
 
 
@@ -21,17 +20,17 @@ Tu aides les utilisateurs avec leurs questions et tâches.
 
 exports.config = {
 
-name:'llama',
+  name:'ai',
 
-author:'Clarence',
+  author:'Clarence',
 
-method:'get',
+  method:'get',
 
-category:'ai',
+  category:'ai',
 
-description:'Llama 70B with memory',
+  description:'AI with Llama 70B memory',
 
-link:['/llama?prompt=hi&id=12']
+  link:['/ai?prompt=hi&id=12']
 
 };
 
@@ -51,9 +50,7 @@ const userId = req.query.id;
 if (!userId) {
 
 return res.status(400).json({
-
 error:"id required"
-
 });
 
 }
@@ -63,9 +60,7 @@ error:"id required"
 if (!prompt) {
 
 return res.status(400).json({
-
 error:"prompt required"
-
 });
 
 }
@@ -77,9 +72,7 @@ if (prompt === "clear") {
 clearChatHistory(userId);
 
 return res.json({
-
 response:"History cleared"
-
 });
 
 }
