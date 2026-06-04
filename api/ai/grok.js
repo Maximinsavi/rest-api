@@ -24,17 +24,23 @@ async function onStart({ req, res }) {
 
     const response = await axios.post(
 
-      'https://torgpt.space/api/v1/chat',
+      'https://blockrun.ai/api/v1/chat/completions',
 
       {
-        message: query
+        model: "meta/llama-4-maverick",
+
+        messages: [
+          {
+            role: "user",
+            content: query
+          }
+        ]
       },
 
       {
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent':
-          'Mozilla/5.0'
+          'User-Agent': 'Mozilla/5.0'
         }
       }
 
@@ -46,9 +52,7 @@ async function onStart({ req, res }) {
       status: true,
 
       response:
-      response.data.message ||
-      response.data.response ||
-      response.data
+      response.data.choices[0].message.content
 
     });
 
@@ -56,7 +60,7 @@ async function onStart({ req, res }) {
   } catch (error) {
 
     console.error(
-      'TorGPT Error:',
+      'AI Error:',
       error.response?.data || error.message
     );
 
@@ -65,7 +69,7 @@ async function onStart({ req, res }) {
 
       status: false,
 
-      error: 'Failed to get response. ...'
+      error: "AI unavailable"
 
     });
 
