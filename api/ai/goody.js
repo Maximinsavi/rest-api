@@ -3,270 +3,179 @@ const fs = require('fs');
 const path = require('path');
 
 
-const chatHistoryDir = 'groqai';
+const memory = {};
+const folder = './groq_ai';
+
+
+if (!fs.existsSync(folder)) {
+  fs.mkdirSync(folder);
+}
 
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
+  apiKey: 'MET_TA_CLE_GROQ_ICI'
 });
 
 
-const systemPrompt = `
-Tu es ClarenceAi, un assistant intelligent.
-Tu aides les utilisateurs avec leurs questions et tâches.
-`;
-
-
-
-exports.config = {
-
-  name:'ai',
-
-  author:'Clarence',
-
-  method:'get',
-
-  category:'ai',
-
-  description:'AI with Llama 70B memory',
-
-  link:['/ai?prompt=hi&id=12']
-
+const meta = {
+  name: 'ai',
+  path: '/ai?prompt=&uid=',
+  method: 'get',
+  category: 'ai'
 };
 
 
 
-exports.initialize = async function({req,res}) {
+function loadMemory(uid) {
 
+  try {
 
-try {
+    const file = path.join(
+      folder,
+      `memory_${uid}.json`
+    );
 
+    if (fs.existsSync(file)) {
 
-const prompt = req.query.prompt;
-const userId = req.query.id;
+      return JSON.parse(
+        fs.readFileSync(file, 'utf8')
+      );
 
+    }
 
+  } catch(e) {}
 
-if (!userId) {
-
-return res.status(400).json({
-error:"id required"
-});
-
-}
-
-
-
-if (!prompt) {
-
-return res.status(400).json({
-error:"prompt required"
-});
-
-}
-
-
-
-if (prompt === "clear") {
-
-clearChatHistory(userId);
-
-return res.json({
-response:"History cleared"
-});
+  return [
+    {
+      role:"system",
+      content:"Tu es MaxChat, un assistant intelligent."
+    }
+  ];
 
 }
 
 
 
-const history = loadChatHistory(userId);
+function saveMemory(uid) {
 
+  fs.writeFileSync(
 
+    path.join(
+      folder,
+      `memory_${uid}.json`
+    ),
 
-const messages = [
+    JSON.stringify(
+      memory[uid],
+      null,
+      2
+    )
 
-{
-role:"system",
-content:systemPrompt
-},
-
-...history,
-
-{
-role:"user",
-content:prompt
-}
-
-];
-
-
-
-const completion = await groq.chat.completions.create({
-
-model:"llama-3.3-70b-versatile",
-
-messages,
-
-temperature:0.7,
-
-max_tokens:8192
-
-});
-
-
-
-const answer =
-completion.choices[0].message.content;
-
-
-
-saveChatHistory(userId,[
-
-...history,
-
-{
-role:"user",
-content:prompt
-},
-
-{
-role:"assistant",
-content:answer
-}
-
-]);
-
-
-
-res.json({
-
-status:true,
-
-response:answer
-
-});
-
-
-
-} catch(e) {
-
-
-console.error(e);
-
-
-res.status(500).json({
-
-status:false,
-
-error:e.message
-
-});
-
+  );
 
 }
 
 
+
+async function onStart({req,res}) {
+
+
+  const { prompt, uid } = req.query;
+
+
+  if (!prompt || !uid) {
+
+    return res.status(400).json({
+      error:"prompt et uid obligatoires"
+    });
+
+  }
+
+
+
+  if (!memory[uid]) {
+
+    memory[uid] = loadMemory(uid);
+
+  }
+
+
+
+  memory[uid].push({
+
+    role:"user",
+    content:prompt
+
+  });
+
+
+
+  try {
+
+
+    const result =
+    await groq.chat.completions.create({
+
+      model:
+      "llama-3.3-70b-versatile",
+
+      messages:
+      memory[uid],
+
+      temperature:0.7
+
+    });
+
+
+
+    const reply =
+    result.choices[0].message.content;
+
+
+
+    memory[uid].push({
+
+      role:"assistant",
+      content:reply
+
+    });
+
+
+
+    saveMemory(uid);
+
+
+
+    res.json({
+
+      status:true,
+
+      response:reply
+
+    });
+
+
+
+  } catch(e) {
+
+
+    res.status(500).json({
+
+      status:false,
+
+      error:e.message
+
+    });
+
+
+  }
+
+
+}
+
+
+
+module.exports = {
+  meta,
+  onStart
 };
-
-
-
-
-
-function loadChatHistory(uid) {
-
-
-try {
-
-
-if (!fs.existsSync(chatHistoryDir)) {
-
-fs.mkdirSync(chatHistoryDir);
-
-}
-
-
-
-const file =
-path.join(
-chatHistoryDir,
-`memory_${uid}.json`
-);
-
-
-
-if (fs.existsSync(file)) {
-
-return JSON.parse(
-fs.readFileSync(file,'utf8')
-);
-
-}
-
-
-
-return [];
-
-
-} catch(e) {
-
-return [];
-
-}
-
-}
-
-
-
-
-
-function saveChatHistory(uid,data) {
-
-
-const file =
-path.join(
-chatHistoryDir,
-`memory_${uid}.json`
-);
-
-
-
-fs.writeFileSync(
-
-file,
-
-JSON.stringify(
-data,
-null,
-2
-),
-
-'utf8'
-
-);
-
-
-}
-
-
-
-
-
-function clearChatHistory(uid) {
-
-
-const file =
-path.join(
-chatHistoryDir,
-`memory_${uid}.json`
-);
-
-
-
-if (fs.existsSync(file)) {
-
-fs.unlinkSync(file);
-
-}
-
-
-}
