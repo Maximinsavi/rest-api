@@ -217,7 +217,7 @@ async function onStart({ req, res }) {
 
       status:false,
 
-      error:"AI error"
+      error:"AI error...."
 
     });
 
