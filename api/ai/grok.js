@@ -1,31 +1,139 @@
 const axios = require('axios');
+const fs = require('fs');
+
+const memory = {};
+
+
+// Charger toutes les mémoires au démarrage
+try {
+
+  fs.readdirSync('./').forEach(file => {
+
+    if (file.startsWith('memory_grok_') && file.endsWith('.json')) {
+
+      const uid = file
+      .replace('memory_grok_', '')
+      .replace('.json', '');
+
+      memory[uid] = JSON.parse(
+        fs.readFileSync('./' + file, 'utf8')
+      );
+
+      console.log('Mémoire Grok chargée:', uid);
+
+    }
+
+  });
+
+} catch(e) {}
+
+
+
+function saveMemory(uid) {
+
+  try {
+
+    fs.writeFileSync(
+
+      `./memory_grok_${uid}.json`,
+
+      JSON.stringify(memory[uid], null, 2),
+
+      'utf8'
+
+    );
+
+  } catch(e) {
+
+    console.log(
+      "Erreur sauvegarde:",
+      e.message
+    );
+
+  }
+
+}
+
+
 
 const meta = {
+
   name: 'Grok',
-  path: '/grok?query=hi',
+
+  path: '/grok?query=hi&uid=123',
+
   method: 'get',
+
   category: 'ai'
+
 };
+
 
 
 async function onStart({ req, res }) {
 
-  const { query } = req.query;
+
+  const { query, uid } = req.query;
 
 
-  if (!query) {
+
+  if (!query || !uid) {
+
     return res.status(400).json({
-      error: 'The "query" param is required'
+
+      error:
+      'query and uid are required'
+
     });
+
   }
+
+
+
+  // Créer mémoire utilisateur
+
+  if (!memory[uid]) {
+
+    memory[uid] = [
+
+      {
+
+        role: "system",
+
+        content:
+        "Tu es Grok, un assistant intelligent, drôle et logique."
+
+      }
+
+    ];
+
+  }
+
+
+
+  // Ajouter message utilisateur
+
+  memory[uid].push({
+
+    role: "user",
+
+    content: query
+
+  });
+
 
 
   try {
 
+
     let response;
 
 
+
     try {
+
+
+      // Première API Grok
 
       response = await axios({
 
@@ -36,12 +144,7 @@ async function onStart({ req, res }) {
 
         data: {
 
-          messages: [
-            {
-              role: "user",
-              content: query
-            }
-          ],
+          messages: memory[uid],
 
           model: "grok-2-1212",
 
@@ -64,8 +167,11 @@ async function onStart({ req, res }) {
       });
 
 
-    } catch (e) {
 
+    } catch(e) {
+
+
+      // Fallback DeepEnglish
 
       response = await axios.post(
 
@@ -73,12 +179,7 @@ async function onStart({ req, res }) {
 
         {
 
-          messages: [
-            {
-              role: "user",
-              content: query
-            }
-          ],
+          messages: memory[uid],
 
           projectName: "wordpress",
 
@@ -106,42 +207,79 @@ async function onStart({ req, res }) {
 
 
 
-    res.json({
+    let reply =
 
-      status: true,
+    response.data.message ||
 
-      response:
-      response.data.message ||
-      response.data.choices?.[0]?.message?.content ||
-      response.data
+    response.data.choices?.[0]?.message?.content ||
+
+    response.data.response ||
+
+    "Pas de réponse";
+
+
+
+
+    // Ajouter réponse IA
+
+    memory[uid].push({
+
+      role: "assistant",
+
+      content: reply
 
     });
 
 
 
-  } catch (error) {
+    // Sauvegarde permanente
+
+    saveMemory(uid);
+
+
+
+    res.json({
+
+      status: true,
+
+      uid,
+
+      response: reply
+
+    });
+
+
+
+  } catch(error) {
 
 
     console.error(
-      "FULL ERROR:",
-      error.response?.data || error.message
+
+      error.response?.data ||
+      error.message
+
     );
 
 
     res.status(500).json({
 
-      status: false,
+      status:false,
 
-      error: "AI unavailable"
+      error:"AI unavailable"
 
     });
 
   }
 
+
 }
 
 
+
 module.exports = {
+
   meta,
+
   onStart
+
 };
