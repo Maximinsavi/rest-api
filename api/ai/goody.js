@@ -1,39 +1,73 @@
-const translate = require('@vitalets/google-translate-api');
+const axios = require('axios');
 
 const meta = {
-  name: 'Translate',
-  path: '/goody?text=Bonjour&lang=en',
+  name: 'image',
+  path: '/image?prompt=cat',
   method: 'get',
-  category: 'translation'
+  category: 'ai'
 };
 
-async function onStart({ req, res }) {
-  const { text, lang } = req.query;
 
-  if (!text || !lang) {
+async function onStart({ req, res }) {
+
+  const { prompt } = req.query;
+
+
+  if (!prompt) {
+
     return res.status(400).json({
-      error: 'The "text" and "lang" params are required',
-      example: '/goody?text=Bonjour&lang=en'
+      error: "prompt required"
     });
+
   }
+
 
   try {
-    // Traduction via Google Translate gratuit
-    const result = await translate(text, { to: lang });
 
-    res.json({
-      status: true,
-      tans: result.text,   // le texte traduit
-      operator: 'Maximin'
-    });
 
-  } catch (error) {
-    console.error('Translation Error:', error.message);
+    const response = await axios.get(
+
+      'https://image.pollinations.ai/prompt/' +
+      encodeURIComponent(prompt),
+
+      {
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent':'Mozilla/5.0'
+        }
+      }
+
+    );
+
+
+    res.set(
+      'Content-Type',
+      'image/png'
+    );
+
+
+    res.send(response.data);
+
+
+
+  } catch(e) {
+
+
     res.status(500).json({
-      status: false,
-      error: 'Failed to get translation.'
+
+      status:false,
+
+      error:"Image generation failed"
+
     });
+
+
   }
+
 }
 
-module.exports = { meta, onStart };
+
+module.exports = {
+  meta,
+  onStart
+};
