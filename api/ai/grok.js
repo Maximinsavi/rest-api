@@ -22,38 +22,51 @@ async function onStart({ req, res }) {
 
   try {
 
-    const response = await axios.get(
-      'https://itzpire.com/api/ai/gpt',
+    const response = await axios.post(
+
+      'https://torgpt.space/api/v1/chat',
+
       {
-        params: {
-          q: query
-        },
+        message: query
+      },
+
+      {
         headers: {
+          'Content-Type': 'application/json',
           'User-Agent':
           'Mozilla/5.0'
         }
       }
+
     );
 
 
     res.json({
+
       status: true,
+
       response:
-      response.data.result || response.data
+      response.data.message ||
+      response.data.response ||
+      response.data
+
     });
 
 
   } catch (error) {
 
     console.error(
-      'AI Error:',
+      'TorGPT Error:',
       error.response?.data || error.message
     );
 
 
     res.status(500).json({
+
       status: false,
-      error: 'Failed to get response'
+
+      error: 'Failed to get response.'
+
     });
 
   }
