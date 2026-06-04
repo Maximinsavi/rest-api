@@ -7,7 +7,7 @@ const chatHistoryDir = 'groqllama70b';
 
 const groq = new Groq({
 
-  apiKey: process.env.GROQ_API_KEY
+ apiKey: process.env.GROQ_API_KEY
 
 });
 
