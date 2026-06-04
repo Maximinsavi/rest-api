@@ -22,29 +22,88 @@ async function onStart({ req, res }) {
 
   try {
 
-    const response = await axios.post(
+    let response;
 
-      'https://blockrun.ai/api/v1/chat/completions',
 
-      {
-        model: "meta/llama-4-maverick",
+    try {
 
-        messages: [
-          {
-            role: "user",
-            content: query
-          }
-        ]
-      },
+      response = await axios({
 
-      {
+        method: 'PUT',
+
+        url:
+        'https://promplate-api.free-chat.asia/please-do-not-hack-this/single/chat_messages',
+
+        data: {
+
+          messages: [
+            {
+              role: "user",
+              content: query
+            }
+          ],
+
+          model: "grok-2-1212",
+
+          temperature: 0.7
+
+        },
+
         headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0'
-        }
-      }
 
-    );
+          'Content-Type':
+          'application/json',
+
+          'User-Agent':
+          'Mozilla/5.0'
+
+        },
+
+        timeout: 15000
+
+      });
+
+
+    } catch (e) {
+
+
+      response = await axios.post(
+
+        'https://api.deepenglish.com/api/gpt_open_ai/chatnew',
+
+        {
+
+          messages: [
+            {
+              role: "user",
+              content: query
+            }
+          ],
+
+          projectName: "wordpress",
+
+          temperature: 0.9
+
+        },
+
+        {
+
+          headers: {
+
+            'Content-Type':
+            'application/json',
+
+            'Authorization':
+            'Bearer UFkOfJaclj61OxoD7MnQknU1S2XwNdXMuSZA+EZGLkc='
+
+          }
+
+        }
+
+      );
+
+    }
+
 
 
     res.json({
@@ -52,15 +111,19 @@ async function onStart({ req, res }) {
       status: true,
 
       response:
-      response.data.choices[0].message.content
+      response.data.message ||
+      response.data.choices?.[0]?.message?.content ||
+      response.data
 
     });
 
 
+
   } catch (error) {
 
+
     console.error(
-      'AI Error:',
+      "FULL ERROR:",
       error.response?.data || error.message
     );
 
