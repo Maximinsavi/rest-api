@@ -1,86 +1,279 @@
-const axios = require('axios');
+const Groq = require('groq-sdk');
+const fs = require('fs');
+const path = require('path');
 
-const meta = {
-  name: 'GPT Vision Image',
-  path: '/ai?prompt=&uid=',
-  method: 'get',
-  category: 'ai'
+
+const chatHistoryDir = 'groqllama70b';
+
+const groq = new Groq({
+
+  apiKey: process.env.GROQ_API_KEY
+
+});
+
+
+const systemPrompt = `
+Tu es ClarenceAi, un assistant intelligent.
+Tu aides les utilisateurs avec leurs questions et tâches.
+`;
+
+
+
+exports.config = {
+
+name:'llama',
+
+author:'Clarence',
+
+method:'get',
+
+category:'ai',
+
+description:'Llama 70B with memory',
+
+link:['/llama?prompt=hi&id=12']
+
 };
 
 
-async function onStart({ req, res }) {
 
-  const { prompt } = req.query;
-
-  if (!prompt) {
-    return res.status(400).json({
-      error: "prompt required"
-    });
-  }
+exports.initialize = async function({req,res}) {
 
 
-  try {
-
-    const response = await axios.post(
-
-      'https://api.openai.com/v1/responses',
-
-      {
-        model: "gpt-4.1",
-
-        input: prompt,
-
-        tools: [
-          {
-            type: "image_generation"
-          }
-        ]
-      },
-
-      {
-        headers: {
-
-          Authorization:
-          `Bearer ${process.env.sk-abcdef1234567890abcdef1234567890abcdef12}`,
-
-          'Content-Type':
-          'application/json'
-
-        }
-      }
-
-    );
+try {
 
 
-    res.json({
-
-      status:true,
-
-      response: response.data
-
-    });
+const prompt = req.query.prompt;
+const userId = req.query.id;
 
 
-  } catch(e) {
 
-    console.log(
-      e.response?.data || e.message
-    );
+if (!userId) {
 
-    res.status(500).json({
+return res.status(400).json({
 
-      status:false,
+error:"id required"
 
-      error:"AI error"
-
-    });
-
-  }
+});
 
 }
 
 
-module.exports = {
-  meta,
-  onStart
+
+if (!prompt) {
+
+return res.status(400).json({
+
+error:"prompt required"
+
+});
+
+}
+
+
+
+if (prompt === "clear") {
+
+clearChatHistory(userId);
+
+return res.json({
+
+response:"History cleared"
+
+});
+
+}
+
+
+
+const history = loadChatHistory(userId);
+
+
+
+const messages = [
+
+{
+role:"system",
+content:systemPrompt
+},
+
+...history,
+
+{
+role:"user",
+content:prompt
+}
+
+];
+
+
+
+const completion = await groq.chat.completions.create({
+
+model:"llama-3.3-70b-versatile",
+
+messages,
+
+temperature:0.7,
+
+max_tokens:8192
+
+});
+
+
+
+const answer =
+completion.choices[0].message.content;
+
+
+
+saveChatHistory(userId,[
+
+...history,
+
+{
+role:"user",
+content:prompt
+},
+
+{
+role:"assistant",
+content:answer
+}
+
+]);
+
+
+
+res.json({
+
+status:true,
+
+response:answer
+
+});
+
+
+
+} catch(e) {
+
+
+console.error(e);
+
+
+res.status(500).json({
+
+status:false,
+
+error:e.message
+
+});
+
+
+}
+
+
 };
+
+
+
+
+
+function loadChatHistory(uid) {
+
+
+try {
+
+
+if (!fs.existsSync(chatHistoryDir)) {
+
+fs.mkdirSync(chatHistoryDir);
+
+}
+
+
+
+const file =
+path.join(
+chatHistoryDir,
+`memory_${uid}.json`
+);
+
+
+
+if (fs.existsSync(file)) {
+
+return JSON.parse(
+fs.readFileSync(file,'utf8')
+);
+
+}
+
+
+
+return [];
+
+
+} catch(e) {
+
+return [];
+
+}
+
+}
+
+
+
+
+
+function saveChatHistory(uid,data) {
+
+
+const file =
+path.join(
+chatHistoryDir,
+`memory_${uid}.json`
+);
+
+
+
+fs.writeFileSync(
+
+file,
+
+JSON.stringify(
+data,
+null,
+2
+),
+
+'utf8'
+
+);
+
+
+}
+
+
+
+
+
+function clearChatHistory(uid) {
+
+
+const file =
+path.join(
+chatHistoryDir,
+`memory_${uid}.json`
+);
+
+
+
+if (fs.existsSync(file)) {
+
+fs.unlinkSync(file);
+
+}
+
+
+}
