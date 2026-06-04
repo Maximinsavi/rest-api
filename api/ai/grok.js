@@ -65,7 +65,7 @@ async function onStart({ req, res }) {
 
       status: false,
 
-      error: 'Failed to get response.'
+      error: 'Failed to get response. ...'
 
     });
 
